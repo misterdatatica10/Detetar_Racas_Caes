@@ -1,6 +1,6 @@
 # 🐕 Identificador de Raças de Cães
 
-Esta aplicação web utiliza Inteligência Artificial para identificar raças de cães em imagens. Utilizando deep learning (ResNet50) e uma interface amigável, o sistema permite que os utilizadores carreguem fotografias de cães e recebam previsões sobre a raça do animal.
+Esta aplicação utiliza Inteligência Artificial para identificar raças de cães em imagens. Utilizando deep learning (ResNet50) e uma interface amigável, o sistema permite que os utilizadores carreguem fotografias de cães e recebam previsões sobre a raça do animal.
 
 ![Demo da Aplicação](demo.png)
 
