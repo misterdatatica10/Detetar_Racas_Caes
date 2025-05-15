@@ -6,7 +6,7 @@ from torchvision.models import resnet50, ResNet50_Weights
 import json
 import os
 
-# Carregar as classes do ImageNet
+# Dicionário de raças de cães do ImageNet
 IMAGENET_CLASSES = {
     'n02085620': 'Chihuahua',
     'n02085782': 'Japanese Spaniel',
@@ -137,7 +137,7 @@ st.set_page_config(
 
 # Título e descrição
 st.title("🐕 Identificador de Raças de Cães")
-st.write("Faça upload de uma imagem de um cão para identificar sua raça!")
+st.write("Carregue uma fotografia de um cão para identificar a sua raça!")
 
 @st.cache_resource
 def load_model():
@@ -172,7 +172,7 @@ def is_dog_class(class_name):
     class_name = class_name.lower()
     return any(keyword in class_name for keyword in dog_keywords)
 
-# Upload do arquivo
+# Carregamento do ficheiro
 uploaded_file = st.file_uploader("Escolha uma imagem...", type=["jpg", "jpeg", "png"])
 
 if uploaded_file is not None:
@@ -181,24 +181,24 @@ if uploaded_file is not None:
         img = Image.open(uploaded_file).convert('RGB')
         st.image(img, caption='Imagem carregada', use_column_width=True)
         
-        with st.spinner('Analisando a imagem...'):
+        with st.spinner('A analisar a imagem...'):
             # Processar a imagem
             input_tensor = process_image(img)
             
-            # Fazer predição
+            # Fazer previsão
             model = load_model()
             with torch.no_grad():
                 output = model(input_tensor)
                 probabilities = torch.nn.functional.softmax(output[0], dim=0)
             
-            # Pegar as 10 principais predições
+            # Obter as 10 principais previsões
             top10_prob, top10_idx = torch.topk(probabilities, 10)
             
             # Converter índices para nomes de classes
             class_names = ResNet50_Weights.IMAGENET1K_V2.meta["categories"]
             
-            # Filtrar e mostrar todas as predições
-            st.write("Todas as predições encontradas:")
+            # Filtrar e mostrar todas as previsões
+            st.write("Todas as previsões encontradas:")
             all_predictions = []
             for prob, idx in zip(top10_prob, top10_idx):
                 class_name = class_names[idx]
@@ -207,7 +207,7 @@ if uploaded_file is not None:
                 if is_dog_class(class_name):
                     all_predictions.append((class_name, confidence))
             
-            # Mostrar predições de cães (com limiar de confiança mais baixo)
+            # Mostrar previsões de cães (com limiar de confiança mais baixo)
             dog_predictions = [(name, conf) for name, conf in all_predictions if conf > 1.0]  # Reduzido para 1%
             
             if dog_predictions:
@@ -217,10 +217,10 @@ if uploaded_file is not None:
             else:
                 st.warning("Não foi possível identificar um cão na imagem.")
                 st.info("Dicas para melhor reconhecimento:\n" +
-                       "1. Use uma imagem bem iluminada\n" +
-                       "2. Certifique-se que o cão está de frente para a câmera\n" +
+                       "1. Utilize uma imagem bem iluminada\n" +
+                       "2. Certifique-se de que o cão está de frente para a câmara\n" +
                        "3. Evite imagens muito escuras ou desfocadas\n" +
-                       "4. O rosto do cão deve estar visível na foto")
+                       "4. O focinho do cão deve estar visível na fotografia")
                 
     except Exception as e:
         st.error(f"Ocorreu um erro ao processar a imagem: {str(e)}")
