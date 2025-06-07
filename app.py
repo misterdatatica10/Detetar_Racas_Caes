@@ -5,6 +5,8 @@ import torchvision.transforms as transforms
 from torchvision.models import resnet50, ResNet50_Weights
 import json
 import os
+from datetime import datetime
+from breed_descriptions import BREED_DESCRIPTIONS
 
 # Dicionário de raças de cães do ImageNet
 IMAGENET_CLASSES = {
@@ -132,12 +134,52 @@ IMAGENET_CLASSES = {
 st.set_page_config(
     page_title="Identificador de Raças de Cães",
     page_icon="🐕",
-    layout="centered"
+    layout="wide"
 )
+
+# Inicializar o histórico no session state se não existir
+if 'historico' not in st.session_state:
+    st.session_state.historico = []
+
+# Barra lateral para configurações
+with st.sidebar:
+    st.title("⚙️ Configurações")
+    confidence_threshold = st.slider(
+        "Nível de Confiança",
+        min_value=1.0,
+        max_value=100.0,
+        value=5.0,
+        help="Ajuste o nível mínimo de confiança para exibir previsões"
+    )
+    
+    st.title("📜 Histórico")
+    if st.session_state.historico:
+        for item in st.session_state.historico[-5:]:  # Mostrar últimas 5 análises
+            with st.expander(f"{item['data']} - {item['raca']}"):
+                st.write(f"Confiança: {item['confianca']:.2f}%")
 
 # Título e descrição
 st.title("🐕 Identificador de Raças de Cães")
 st.write("Carregue uma fotografia de um cão para identificar a sua raça!")
+
+# Opções de entrada de imagem
+input_method = st.radio(
+    "Escolha como pretende fornecer a imagem:",
+    ["Carregar Ficheiro", "Câmara"],
+    horizontal=True
+)
+
+# Variável para armazenar a imagem
+img = None
+
+if input_method == "Carregar Ficheiro":
+    uploaded_file = st.file_uploader("Escolha uma imagem...", type=["jpg", "jpeg", "png"])
+    if uploaded_file is not None:
+        img = Image.open(uploaded_file).convert('RGB')
+else:
+    camera_image = st.camera_input("Tire uma fotografia do cão")
+    if camera_image is not None:
+        img = Image.open(camera_image).convert('RGB')
 
 @st.cache_resource
 def load_model():
@@ -172,59 +214,92 @@ def is_dog_class(class_name):
     class_name = class_name.lower()
     return any(keyword in class_name for keyword in dog_keywords)
 
-# Carregamento do ficheiro
-uploaded_file = st.file_uploader("Escolha uma imagem...", type=["jpg", "jpeg", "png"])
-
-if uploaded_file is not None:
+if img is not None:
     try:
-        # Carregar e exibir a imagem
-        img = Image.open(uploaded_file).convert('RGB')
-        st.image(img, caption='Imagem carregada', use_column_width=True)
+        # Criar duas colunas
+        col1, col2 = st.columns(2)
         
-        with st.spinner('A analisar a imagem...'):
-            # Processar a imagem
-            input_tensor = process_image(img)
-            
-            # Fazer previsão
-            model = load_model()
-            with torch.no_grad():
-                output = model(input_tensor)
-                probabilities = torch.nn.functional.softmax(output[0], dim=0)
-            
-            # Obter as 10 principais previsões
-            top10_prob, top10_idx = torch.topk(probabilities, 10)
-            
-            # Converter índices para nomes de classes
-            class_names = ResNet50_Weights.IMAGENET1K_V2.meta["categories"]
-            
-            # Filtrar e mostrar todas as previsões
-            st.write("Todas as previsões encontradas:")
-            all_predictions = []
-            for prob, idx in zip(top10_prob, top10_idx):
-                class_name = class_names[idx]
-                confidence = prob.item() * 100
-                st.write(f"- {class_name}: {confidence:.2f}%")
-                if is_dog_class(class_name):
-                    all_predictions.append((class_name, confidence))
-            
-            # Mostrar previsões de cães (com limiar de confiança mais baixo)
-            dog_predictions = [(name, conf) for name, conf in all_predictions if conf > 1.0]  # Reduzido para 1%
-            
-            if dog_predictions:
-                st.success("Raças de cão identificadas:")
-                for breed, confidence in dog_predictions:
-                    st.write(f"- {breed}: {confidence:.2f}% de certeza")
-            else:
-                st.warning("Não foi possível identificar um cão na imagem.")
-                st.info("Dicas para melhor reconhecimento:\n" +
-                       "1. Utilize uma imagem bem iluminada\n" +
-                       "2. Certifique-se de que o cão está de frente para a câmara\n" +
-                       "3. Evite imagens muito escuras ou desfocadas\n" +
-                       "4. O focinho do cão deve estar visível na fotografia")
+        with col1:
+            st.image(img, caption='Imagem carregada', use_column_width=True)
+        
+        with col2:
+            with st.spinner('A analisar a imagem...'):
+                # Processar a imagem
+                input_tensor = process_image(img)
                 
+                # Fazer previsão
+                model = load_model()
+                with torch.no_grad():
+                    output = model(input_tensor)
+                    probabilities = torch.nn.functional.softmax(output[0], dim=0)
+                
+                # Obter as 10 principais previsões
+                top10_prob, top10_idx = torch.topk(probabilities, 10)
+                
+                # Converter índices para nomes de classes
+                class_names = ResNet50_Weights.IMAGENET1K_V2.meta["categories"]
+                
+                # Filtrar e mostrar previsões de cães
+                dog_predictions = []
+                for prob, idx in zip(top10_prob, top10_idx):
+                    class_name = class_names[idx]
+                    confidence = prob.item() * 100
+                    if is_dog_class(class_name) and confidence > confidence_threshold:
+                        dog_predictions.append((class_name, confidence))
+                
+                if dog_predictions:
+                    st.success("Raças de cão identificadas:")
+                    for breed, confidence in dog_predictions:
+                        st.write(f"### {breed}")
+                        st.write(f"Confiança: {confidence:.2f}%")
+                        
+                        # Adicionar ao histórico
+                        st.session_state.historico.append({
+                            'data': datetime.now().strftime("%Y-%m-%d %H:%M"),
+                            'raca': breed,
+                            'confianca': confidence
+                        })
+                        
+                        # Tentar encontrar correspondência aproximada
+                        breed_lower = breed.lower()
+                        found_match = False
+                        for known_breed in BREED_DESCRIPTIONS:
+                            if known_breed.lower() in breed_lower or breed_lower in known_breed.lower():
+                                info = BREED_DESCRIPTIONS[known_breed]
+                                st.write("#### Informações da Raça")
+                                st.write(f"**Temperamento:** {info['temperamento']}")
+                                st.write(f"**Tamanho:** {info['tamanho']}")
+                                st.write(f"**Peso:** {info['peso']}")
+                                st.write(f"**Expectativa de Vida:** {info['expectativa_vida']}")
+                                st.write(f"**Descrição:** {info['descricao']}")
+                                found_match = True
+                                break
+                        
+                        if not found_match:
+                            st.warning("Informações detalhadas não disponíveis para esta raça específica.")
+                else:
+                    st.warning("Não foi possível identificar um cão na imagem com confiança suficiente.")
+                    st.info("Dicas para melhor reconhecimento:\n" +
+                           "1. Utilize uma imagem bem iluminada\n" +
+                           "2. Certifique-se de que o cão está de frente para a câmara\n" +
+                           "3. Evite imagens muito escuras ou desfocadas\n" +
+                           "4. O focinho do cão deve estar visível na fotografia")
+
     except Exception as e:
         st.error(f"Ocorreu um erro ao processar a imagem: {str(e)}")
         st.info("Por favor, tente novamente com outra imagem.")
+
+# Adicionar seção de informações no final
+st.markdown("---")
+st.markdown("""
+### 📝 Sobre o Projeto
+Este identificador de raças de cães utiliza um modelo de inteligência artificial pré-treinado para reconhecer diferentes raças de cães.
+Para melhores resultados:
+- Use fotografias bem iluminadas
+- Certifique-se que o cão está claramente visível
+- Evite fotografias com vários cães
+- Dê preferência a fotografias onde o cão está a olhar para a câmara
+""")
 
 # Configuração da porta para o Render
 port = int(os.environ.get("PORT", 8501)) 

@@ -80,4 +80,27 @@ Para obter os melhores resultados:
   - Imagens muito escuras ou desfocadas
   - Cães em posições não convencionais
   - Raças muito raras ou mistas
-  - Imagens com múltiplos cães 
+  - Imagens com múltiplos cães
+
+## Demonstração
+
+![Demonstração do Identificador de Raças](demo2.PNG)
+
+## Funcionalidades
+
+- Identificação de raças de cães através de fotografias
+- Suporte para upload de imagens ou captura pela câmara
+- Informações detalhadas sobre cada raça identificada:
+  - Temperamento
+  - Tamanho
+  - Peso
+  - Expectativa de vida
+  - Descrição geral
+- Histórico das últimas análises realizadas
+
+## Como Usar
+
+1. Aceda à aplicação através do navegador
+2. Escolha entre carregar uma fotografia ou usar a câmara
+3. Aguarde a análise da imagem
+4. Visualize os resultados com as informações detalhadas da raça 
